@@ -1,0 +1,3 @@
+# Службові файли Python
+__pycache__/
+*.py[cod]
