@@ -1,8 +1,8 @@
 import os
 import matplotlib.pyplot as plt
-from ФБ41_Михайленко_Міроненко.src.attack import RUS_FREQS
-from ФБ41_Михайленко_Міроненко.src import clean_text
-from ФБ41_Михайленко_Міроненко.src import avg_ic_for_r, calc_dr
+from src.attack import RUS_FREQS
+from src.vigenere import clean_text
+from src.stats import avg_ic_for_r, calc_dr
 
 os.makedirs("plots", exist_ok=True)
 
