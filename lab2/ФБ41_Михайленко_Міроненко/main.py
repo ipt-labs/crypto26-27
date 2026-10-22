@@ -9,11 +9,9 @@ from math import gcd
 
 from tabulate import tabulate
 
-from ФБ41_Михайленко_Міроненко.src import (
-    M, CHAR_TO_IDX, IDX_TO_CHAR, clean_text, encrypt, decrypt,
-)
-from ФБ41_Михайленко_Міроненко.src import calc_ic, calc_dr, get_blocks, avg_ic_for_r
-from ФБ41_Михайленко_Міроненко.src.attack import RUS_FREQS, recover_key_chisquare
+from src.vigenere import M, CHAR_TO_IDX, IDX_TO_CHAR, clean_text, encrypt, decrypt
+from src.stats import calc_ic, calc_dr, get_blocks, avg_ic_for_r
+from src.attack import RUS_FREQS, recover_key_chisquare
 
 MAX_R = 30
 I_LANG = sum(p * p for p in RUS_FREQS.values())  # теоретичний I мови
