@@ -1,8 +1,3 @@
-"""
-Головна точка входу: КП №2 «Криптоаналіз шифру Віженера», варіант 10.
-Запуск з кореня проєкту:  python main.py
-"""
-
 import os
 from collections import Counter
 from math import gcd
