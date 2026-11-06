@@ -1,0 +1,154 @@
+ЖУРНАЛ ПЕРЕВІРКИ ВЗАЄМОДІЇ РЕАЛІЗАЦІЇ RSA З ТЕСТОВИМ СЕРЕДОВИЩЕМ
+Сайт: http://asymcryptwebservice.appspot.com/?section=rsa   (дата перевірки: 31.10.2026)
+
+Абонент A: n = 521 біт, p = 262 біт, q = 260 біт;  абонент B: n1 = 528 біт, p1 = q1 = 264 біти;  e = 65537 (на сайті 10001 hex), n <= n1.
+Ключі зберігаються у key_A.json / key_B.json (створює gen_RSA_pair.py), відкритий ключ сервера - командою `server`.
+
+Як читати журнал:
+  рядки, що починаються з `$`   - команди нашої програми (site_interop.py) та її вивід;
+  рядки, що починаються з `>>>` - що введено на сайті і що сайт повернув (скріншот вказано в дужках);
+  значення на сайті - hex, тип повідомлення Bytes (якщо не вказано Text); сайт повертає hex великими літерами.
+Ключ сервера на сайті одноразовий для сесії (розділ Server Key). Для A -> сервер потрібно n1 >= n (взято 1024 біт),
+для сервер -> B потрібно n1 >= n сервера (взято 512 біт, бо n_B має 528 біт).
+
+##### 0. Відкритий ключ сервера (розділ Server Key, 1024 біт) #####
+$ python site_interop.py server --n 81362309B21A614BA45C1A91308A30852DB938337FA8A112B2B765907494504315872DB2CCA4FBF1F2D2D6DE5AC3CB6167CBA9759449C65A17B7F50027B0149CE2FC3AE0523DB86543A739A4AAE8A556FDDA582C79868226DDB2E790B0F1695B48DD7CD14CCEE053D6E94234797995A15667B96D41BECF5101E828E04B69797B --e 10001
+Відкритий ключ сервера збережено (1024 біт, e = 65537).
+
+##### 1a. Encrypt: наша реалізація -> розшифрування на сервері #####
+$ python site_interop.py encrypt --random
+Одержувач: server
+Повідомлення M (hex):            258459326d543a7b4beb425a631c94bbb53ea1526b189be194db2b372e086143
+Шифротекст C = M^e mod n (hex):  6eda11ccfdd7eba56f5b61139ccacd82c2962e6e582551248a51ff906c04d2b785d0a547296f51653e6f5e24e2f26d5950f4d9b50945d88b2ea7daa69fe7113beaf96f5a1e4d14d6a14035d1d42c47869656ef2a9c79e4a7e40eaf71ddf7a16e44d7c392bb781997817558476977a85c6b95619a35ee8c4224506bfbaf6babbb
+
+На сайті: розділ Decryption -> Ciphertext = C, Bytes -> Decrypt. Має повернутись M.
+
+>>> Сайт, розділ Decryption (ключ сервера 1024 біт): Ciphertext = C, тип Bytes -> Decrypt
+>>> Message (відповідь сервера): 258459326D543A7B4BEB425A631C94BBB53EA1526B189BE194DB2B372E086143
+>>> Збігається з M: True   (скріншот 02_E-a_decrypt_on_site)
+
+##### 1b. Encrypt: шифрування НА САЙТІ відкритим ключем абонента A -> розшифрування нашою реалізацією #####
+>>> Сайт, розділ Encryption: Modulus = n_A, Public exponent = 10001, Message = eab85b38...822d24 (Bytes) -> Encrypt
+>>> Ciphertext (відповідь сайту): 2601DD5F78AF33310614931FE7CD36A735330D33BE5516787B8A20B5401344136DE4DF48D61201C2D780832BC9CF1C5CE2AB044A797079FADB39297F9A9FC1A6BE   (скріншот 03_E-b_encrypt_on_site_for_A)
+$ python site_interop.py decrypt --who A --c 2601DD5F78AF33310614931FE7CD36A735330D33BE5516787B8A20B5401344136DE4DF48D61201C2D780832BC9CF1C5CE2AB044A797079FADB39297F9A9FC1A6BE
+Абонент A розшифровує за допомогою свого секретного ключа
+Шифротекст C (hex):                2601dd5f78af33310614931fe7cd36a735330d33be5516787b8a20b5401344136de4df48d61201c2d780832bc9cf1c5ce2ab044a797079fadb39297f9a9fc1a6be
+Повідомлення M = C^d mod n (hex):  eab85b383e349781fb5e2f45df003d614e43a61cdccc4564bfa198aadf822d24
+
+##### 1c. Encrypt: шифрування НА САЙТІ відкритим ключем абонента B -> розшифрування нашою реалізацією #####
+>>> Сайт, розділ Encryption: Modulus = n1 (B), Public exponent = 10001, Message = 4ef97729...c9c3c2 (Bytes) -> Encrypt
+>>> Ciphertext (відповідь сайту): 435E33D4B1FC28448EA503BAD3E067ACF16FB4910A6F2970F8E1089B630CE72C33D02DE8AF7CB81C4AF5BE91C180CD3FF1A0428B697053EAAE582F35DDDB12C3ECCE   (скріншот 04_E-b_encrypt_on_site_for_B)
+$ python site_interop.py decrypt --who B --c 435E33D4B1FC28448EA503BAD3E067ACF16FB4910A6F2970F8E1089B630CE72C33D02DE8AF7CB81C4AF5BE91C180CD3FF1A0428B697053EAAE582F35DDDB12C3ECCE
+Абонент B розшифровує за допомогою свого секретного ключа
+Шифротекст C (hex):                435e33d4b1fc28448ea503bad3e067acf16fb4910a6f2970f8e1089b630ce72c33d02de8af7cb81c4af5be91c180cd3ff1a0428b697053eaae582f35dddb12c3ecce
+Повідомлення M = C^d mod n (hex):  4ef977290ccc9b21d69f98e2039a57328ed3f346a5933f8e7f449b30c7c9c3c2
+
+##### 2a. Sign: підпис нашою реалізацією (абоненти A і B) -> перевірка на сайті (розділ Verification) #####
+$ python site_interop.py sign --who A --random
+Абонент A підписує своїм секретним ключем
+Повідомлення M (hex):         cdff60974bd82ad8b0e9f25a96d49a2f3f7d85a35c2581d80f865645e307d360
+Підпис S = M^d mod n (hex):   7b16309272f3fd712b9eb9cf90257d93c329117d9dfe1ff7fc82059c6cf4f9641d2b9cec4956e74cd6f8bc20894ab5db64134d8d93ce055f2c7c2e0fd6f26addd1
+
+На сайті: розділ Verification -> Message = M (Bytes), Signature = S, Modulus і Public exponent:
+Modulus (hex):         01a49d563ea088da5e922444e8c2266a1a91be50af8756076dd8ee3af0e6f567ae7282db80b92fde7849af2903a798927368bb5965fc917af0ebee549d9791f36d17
+Public exponent (hex): 010001
+Verify має повернути true.
+
+$ python site_interop.py sign --who B --random
+Абонент B підписує своїм секретним ключем
+Повідомлення M (hex):         e02195571d0294a98752c8b7a194d8397568660238d1944203986d33e91d048d
+Підпис S = M^d mod n (hex):   95f5218bdecc52d39b3048133f17a19bf14d67f0a6a9f355a508ca6dbfd9bee688b16e8971e3f2061a68c88a27609e20387eb81ecdcd558de971fb5ca14cfe5db9bd
+
+На сайті: розділ Verification -> Message = M (Bytes), Signature = S, Modulus і Public exponent:
+Modulus (hex):         a00f6df2983d5aa52a9a0ca854f2daddadd9ff2d565ff2211ecdae1bb081b900878adf0e0bea31d8c5b3bae101c0c7b4b3c2a8a77b5e5677b611d7d1ca449c6177d7
+Public exponent (hex): 010001
+Verify має повернути true.
+
+>>> Сайт, розділ Verification (A): Message = cdff6097...07d360 (Bytes), Signature = S_A, Modulus = n_A, Public exponent = 10001 -> Verify
+>>> Verification: true   (скріншот 05_S-a_verify_on_site_A)
+>>> Сайт, розділ Verification (B): Message = e0219557...1d048d (Bytes), Signature = S_B, Modulus = n1 (B), Public exponent = 10001 -> Verify
+>>> Verification: true   (скріншот 06_S-a_verify_on_site_B)
+
+##### 2b. Sign: підпис НА САЙТІ (секретний ключ сервера) -> перевірка нашою реалізацією Verify #####
+>>> Сайт, розділ Signature: Message = 56f9e145...e676c4 (Bytes) -> Sign   (скріншот 07_S-b_sign_on_site)
+>>> Signature (відповідь сайту): 33F960F54A8CAA1F19BE120803803FE3...AAC (256 hex-символів)
+$ python site_interop.py verify --msg 56f9e1450eb230ca223d732988875d7f6d1be645a54df5c0229a547a04e676c4 --sig 33F960F54A8CAA1F19BE120803803FE322945FCBEA8480C22FFCD618FB2D393A9C27203A36F26FC4073B3193A13D49A8FA292B16AB0D38128BC44FC8D159D3B4DE9D4E1C34FD6A41E822793E64F3E03436DADD921C40E7BAB480AC8104204F622F3FA148457A806CB9D049B4F761142BF2AB1579BFDE09E2F60866C2F2AA6AAC
+Перевірка підпису відкритим ключем (server): True
+
+>>> Сайт, розділ Signature: Verify (наш) -> True   [підпис сервера підтверджено нашим Verify]
+
+##### 3a. SendKey: відправник A (наша реалізація) -> одержувач: сервер (Receive Key на сайті) #####
+$ python site_interop.py send-key --who A --to server
+=== ЕТАП ВІДПРАВНИКА (Абонент А) ===
+Випадковий секретний ключ k (hex):            f5cc197ae551cbdfaea941c2bedc18c34142ab7a2d36735e7d6ef3800e0858f7ebc0cb9c27ed10797a146bf073047d08767e00d5afd3f2592fe313dcd187851461
+Підпис S = k^d mod n (hex):                   8431d4376f936c57a5443e533c0175155da149a78776a0e53c681c5cf9f3fc07de71e8ad8a80e8934a1538231150875de2832e1ffdaa0b5329f5e444f325413aff
+Криптограма ключа k1 = k^e1 mod n1 (hex):     14c74cef0d644b683ced5c0cd336ab49284963af67109b195173a0bd454a52352b4b189e4807fde1fbf125f6bd8bdf3e87e80e9eec62b41c74b365254c59985c4aa079559f8fa25c95131ee171f961ce0c37077ac740a25d0fdf4dba5470bace31425e3f18c804af6be32f4e8491989a78900f24e4572ee4389f1eb9e3de11f8
+Криптограма підпису S1 = S^e1 mod n1 (hex):   31692bbf4ad231846c9fde567540e0eaa5c8677906224e0d86ead51ab831afda38cd9d4e588b04a552c4729f9b1b619f11fb68add569c50ee3add89136705d28dcacdc1c2c39df28fee7a77c5b6ac62d1a9c5cadfd958de750c767bf1e89d168342fb83fb69c536ba518f30cda1ba7988be6ec7a18e1cee88ff2b64305d90e49
+Справжність відправника: підпис S створено секретним ключем d абонента А.
+Конфіденційність: k і S зашифровано відкритим ключем (e1, n1) абонента В.
+
+На сайті: розділ Receive Key -> Key = k1, Signature = S1, Modulus і Public exponent абонента A (відправника):
+Modulus (hex):         01a49d563ea088da5e922444e8c2266a1a91be50af8756076dd8ee3af0e6f567ae7282db80b92fde7849af2903a798927368bb5965fc917af0ebee549d9791f36d17
+Public exponent (hex): 010001
+Receive має повернути Key = k і Verification = true.
+
+>>> Сайт, розділ Receive Key: Key = k1, Signature = S1, Modulus = n_A, Public exponent = 10001 -> Receive
+>>> Key (відповідь сервера): F5CC197AE551CBDFAEA941C2BEDC18C34142AB7A2D36735E7D6EF3800E0858F7EBC0CB9C27ED10797A146BF073047D08767E00D5AFD3F2592FE313DCD187851461
+>>> Verification: true   (скріншот 08_P-a_receive_key_on_site). Key збігається з k, надісланим нашим SendKey.
+
+##### 0'. Новий відкритий ключ сервера (розділ Server Key, 512 біт): потрібен, щоб виконувалась умова протоколу n1 >= n, коли сервер - відправник #####
+$ python site_interop.py server --n A8D6443BAF4D96FCF3F2F3ED61E2EDD83069A53DD057905C3F07420C8F3A2819AD70D7A3F8A85733B0B8F13F23B8E1CE213515E654A38E253DF359FE1AC8E179 --e 10001
+Відкритий ключ сервера збережено (512 біт, e = 65537).
+
+##### 3b. SendKey на сайті (відправник - сервер, ключ 512 біт) -> одержувач B (наша реалізація ReceiveKey) #####
+>>> Сайт, розділ Send Key: Modulus = n1 (B), Public exponent = 10001 -> Send   (скріншот 10_P-b_send_key_on_site)
+>>> Key (k1):       6998261F25519B181F823A6231E2F9C6AFE4650F36C0858AA36170CB328F281E2DDA7E30851AE80CB4F0040CEF667F4CD4A6AF91DFB4856BBF6694970D583CE49BFC
+>>> Signature (S1): 562374A75598F15D533905A9878E4A047AD0D438466052443EF29340F60C76C95C34F8F1FFD28A0FF0557102696095FA09BD201A6AD1CDE78CE6F2DE97C969BA0F55
+$ python site_interop.py receive-key --who B --key 6998261F25519B181F823A6231E2F9C6AFE4650F36C0858AA36170CB328F281E2DDA7E30851AE80CB4F0040CEF667F4CD4A6AF91DFB4856BBF6694970D583CE49BFC --sig 562374A75598F15D533905A9878E4A047AD0D438466052443EF29340F60C76C95C34F8F1FFD28A0FF0557102696095FA09BD201A6AD1CDE78CE6F2DE97C969BA0F55 --from server
+
+=== ЕТАП ОТРИМУВАЧА (Абонент В) ===
+Розшифрований ключ k = k1^d1 mod n1 (hex):   10ff13a6c6c86808
+Розшифрований підпис S = S1^d1 mod n1 (hex): 931a98559518b1b9282b7d6934a72f00887a203b8bb449e9b911d5d93519c75ce8d1ac78b3ba3b76e1f427101cedc8712fca3491edc8b8d4d819161145a47df6
+Перевірка підпису S^e mod n (hex):           10ff13a6c6c86808
+Результат перевірки справжності (k == S^e):  True
+Конфіденційність: розшифрувати k1, S1 може лише абонент В - власник секретного ключа d1.
+Справжність відправника: підпис перевірено відкритим ключем (e, n) абонента А.
+
+Отриманий ключ k (hex): 10ff13a6c6c86808
+Підпис відправника (server) підтверджено: True
+
+>>> Підсумок 3b: ReceiveKey (абонент B) розшифрував k1, S1 від сайту; k == S^e mod n сервера: True
+
+##### 4a. Текстові повідомлення (тип Text на сайті = UTF-8): шифрування нашою реалізацією для сервера (ключ 512 біт) -> Decryption на сайті, Text #####
+$ python site_interop.py encrypt --text "Привіт, RSA!" --to server
+Одержувач: server
+Повідомлення M (hex):            d09fd180d0b8d0b2d196d1822c2052534121
+Шифротекст C = M^e mod n (hex):  a3cdab24ede9b4c9cb85cd77931f82b058153a59fc3fc60b0d7af867226f7de247fc0fdcb2463b942d354105111aa974830063783b07b84062d4dc4eb59360bf
+
+На сайті: розділ Decryption -> Ciphertext = C, Text -> Decrypt. Має повернутись M.
+
+>>> Сайт, розділ Decryption (ключ сервера 512 біт): Ciphertext = C, тип Text -> Decrypt
+>>> Message (відповідь сервера): Привіт, RSA!   (скріншот 11_E-a_text_decrypt_on_site)
+
+##### 4b. Текст: шифрування НА САЙТІ (тип Text) відкритим ключем абонента A -> розшифрування нашою реалізацією #####
+>>> Сайт, розділ Encryption: Modulus = n_A, Public exponent = 10001, Message = «Привіт від сайту, RSA!» (Text) -> Encrypt   (скріншот 12_E-b_text_encrypt_on_site_for_A)
+>>> Ciphertext (відповідь сайту): 42642576422C757D151674B05700E7B396C7B5B5CEA9AA978FB9182BDF9FE252F40FC699588E7C469559413476174BAB8007760070A6F9CA9B5878FCADFC1FDA94
+$ python site_interop.py decrypt --who A --c 42642576422C757D151674B05700E7B396C7B5B5CEA9AA978FB9182BDF9FE252F40FC699588E7C469559413476174BAB8007760070A6F9CA9B5878FCADFC1FDA94
+Абонент A розшифровує за допомогою свого секретного ключа
+Шифротекст C (hex):                42642576422c757d151674b05700e7b396c7b5b5cea9aa978fb9182bdf9fe252f40fc699588e7c469559413476174bab8007760070a6f9ca9b5878fcadfc1fda94
+Повідомлення M = C^d mod n (hex):  d09fd180d0b8d0b2d196d18220d0b2d196d0b420d181d0b0d0b9d182d1832c2052534121
+  як UTF-8 текст: Привіт від сайту, RSA!
+
+#####################################  ПІДСУМОК  #####################################
+ №  Перевірка                                                  Результат                              Скріншот
+ 1  Encrypt: наш Encrypt (ключ сервера) -> Decryption на сайті  Message збігся з M                      02
+ 2  Encrypt: Encryption на сайті (ключ A) -> наш Decrypt        M збігся                               03
+ 3  Encrypt: Encryption на сайті (ключ B) -> наш Decrypt        M збігся                               04
+ 4  Sign:    наш Sign (A) -> Verification на сайті              Verification = true                    05
+ 5  Sign:    наш Sign (B) -> Verification на сайті              Verification = true                    06
+ 6  Sign:    Signature на сайті (ключ сервера) -> наш Verify    True                                   07
+ 7  Протокол: наш SendKey (A -> сервер) -> Receive Key          Key збігся з k, Verification = true    08
+ 8  Протокол: Send Key на сайті (сервер -> B) -> наш ReceiveKey k отримано, підпис підтверджено (True)   10
+ 9  Текст:   наш Encrypt -> Decryption на сайті (Text)          "Привіт, RSA!"                         11
+10  Текст:   Encryption на сайті (Text, ключ A) -> наш Decrypt  "Привіт від сайту, RSA!"               12
+    допоміжні скріншоти: 01 - Server Key (1024 біт), 09 - Server Key (512 біт)
