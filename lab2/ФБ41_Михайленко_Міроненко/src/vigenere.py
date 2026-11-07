@@ -1,6 +1,4 @@
-"""
-Модуль реалізації шифру Віженера та попередньої обробки текстів.
-"""
+"""Реалізація шифру Віженера для російського алфавіту з 32 літер."""
 
 ALPHABET = "абвгдежзийклмнопрстуфхцчшщъыьэюя"
 M = len(ALPHABET)
@@ -9,34 +7,32 @@ IDX_TO_CHAR = {i: ch for i, ch in enumerate(ALPHABET)}
 
 
 def clean_text(text: str) -> str:
-    """Очищає текст: приведення до нижнього регістру, заміна 'ё' на 'е' та фільтрація за алфавітом."""
+    """Нижній регістр, заміна ё на е, вилучення всіх символів поза алфавітом."""
     text = text.lower().replace("ё", "е")
-    return "".join([c for c in text if c in CHAR_TO_IDX])
+    return "".join(ch for ch in text if ch in CHAR_TO_IDX)
 
 
 def encrypt(plaintext: str, key: str) -> str:
-    """Зашифрування відкритого тексту шифром Віженера."""
     pt = clean_text(plaintext)
     k = clean_text(key)
-    r = len(k)
-    res = []
+    if not k:
+        raise ValueError("Ключ має містити хоча б одну літеру російського алфавіту.")
+    result = []
     for i, ch in enumerate(pt):
         x = CHAR_TO_IDX[ch]
-        k_idx = CHAR_TO_IDX[k[i % r]]
-        y = (x + k_idx) % M
-        res.append(IDX_TO_CHAR[y])
-    return "".join(res)
+        shift = CHAR_TO_IDX[k[i % len(k)]]
+        result.append(IDX_TO_CHAR[(x + shift) % M])
+    return "".join(result)
 
 
 def decrypt(ciphertext: str, key: str) -> str:
-    """Розшифрування шифртексту шифром Віженера."""
     ct = clean_text(ciphertext)
     k = clean_text(key)
-    r = len(k)
-    res = []
+    if not k:
+        raise ValueError("Ключ має містити хоча б одну літеру російського алфавіту.")
+    result = []
     for i, ch in enumerate(ct):
         y = CHAR_TO_IDX[ch]
-        k_idx = CHAR_TO_IDX[k[i % r]]
-        x = (y - k_idx) % M
-        res.append(IDX_TO_CHAR[x])
-    return "".join(res)
+        shift = CHAR_TO_IDX[k[i % len(k)]]
+        result.append(IDX_TO_CHAR[(y - shift) % M])
+    return "".join(result)

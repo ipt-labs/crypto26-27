@@ -1,75 +1,77 @@
-"""
-Модуль автоматичного пошуку періоду r та відновлення символів ключа.
-"""
+"""Пошук періоду та відновлення ключа за частотами з КП №1."""
 
 from collections import Counter
-from typing import Tuple, List
-from .vigenere import ALPHABET, M, CHAR_TO_IDX, IDX_TO_CHAR
+from typing import List, Tuple
+
+from .vigenere import M, CHAR_TO_IDX, IDX_TO_CHAR
 from .stats import avg_ic_for_r, calc_dr, get_blocks
 
-# Стандартні частоти літер російської мови (32 літери)
+# Частоти отримані з characters_without_spaces.csv у КП №1.
+# У КП №1 літера ё була окремою, а в КП №2 використовується алфавіт без ё.
+# Тому count(ё) додано до count(е), після чого частоти нормовано.
 RUS_FREQS = {
-    'а': 0.0801, 'б': 0.0159, 'в': 0.0454, 'г': 0.0170, 'д': 0.0298,
-    'е': 0.0845, 'ж': 0.0094, 'з': 0.0165, 'и': 0.0735, 'й': 0.0121,
-    'к': 0.0349, 'л': 0.0440, 'м': 0.0321, 'н': 0.0670, 'о': 0.1097,
-    'п': 0.0281, 'р': 0.0473, 'с': 0.0547, 'т': 0.0626, 'у': 0.0262,
-    'ф': 0.0026, 'х': 0.0097, 'ц': 0.0048, 'ч': 0.0144, 'ш': 0.0073,
-    'щ': 0.0036, 'ъ': 0.0004, 'ы': 0.0190, 'ь': 0.0174, 'э': 0.0032,
-    'ю': 0.0064, 'я': 0.0201
+    "а": 0.0823091960, "б": 0.0177930887, "в": 0.0453203921,
+    "г": 0.0197020883, "д": 0.0303998933, "е": 0.0824203018,
+    "ж": 0.0104197038, "з": 0.0169985139, "и": 0.0662904333,
+    "й": 0.0115846313, "к": 0.0345922855, "л": 0.0507255209,
+    "м": 0.0298867866, "н": 0.0657207635, "о": 0.1144120382,
+    "п": 0.0259570081, "р": 0.0444746413, "с": 0.0525853646,
+    "т": 0.0580888052, "у": 0.0278155051, "ф": 0.0019675827,
+    "х": 0.0086548051, "ц": 0.0035681796, "ч": 0.0145669803,
+    "ш": 0.0092500628, "щ": 0.0028476753, "ъ": 0.0004417297,
+    "ы": 0.0193364492, "ь": 0.0198583098, "э": 0.0031951334,
+    "ю": 0.0063761261, "я": 0.0224400046,
 }
 
 
 def find_possible_periods(text: str, max_r: int = 30) -> List[Tuple[int, float, int]]:
-    """Повертає список кандидатів періоду r із розрахованими середнім IC та D_r."""
-    results = []
-    for r in range(2, max_r + 1):
-        ic_val = avg_ic_for_r(text, r)
-        dr_val = calc_dr(text, r)
-        results.append((r, ic_val, dr_val))
-    return sorted(results, key=lambda x: x[1], reverse=True)
+    """Повертає (r, середній IC, D_r) для всіх r від 2 до max_r."""
+    return [
+        (r, avg_ic_for_r(text, r), calc_dr(text, r))
+        for r in range(2, min(max_r, len(text) - 1) + 1)
+    ]
 
 
 def recover_key_chisquare(text: str, r: int) -> str:
-    """
-    Відновлення ключа за допомогою критерію Хі-квадрат (Chi-Square test).
-    Знаходить зсув, який мінімізує відхилення спостережуваних частот від теоретичних.
-    """
+    """Підбирає кожен символ ключа за мінімумом критерію хі-квадрат."""
     blocks = get_blocks(text, r)
     key = []
 
     for block in blocks:
         n = len(block)
-        best_k = 0
-        min_chisq = float('inf')
+        if n == 0:
+            raise ValueError("Недостатньо символів шифртексту для такого періоду.")
+        observed_counts = Counter(CHAR_TO_IDX[ch] for ch in block)
+        best_shift = 0
+        min_chisq = float("inf")
 
-        for k in range(M):
-            # Розшифровуємо блок зсувом k
-            decrypted_indices = [(CHAR_TO_IDX[ch] - k) % M for ch in block]
-            counts = Counter(decrypted_indices)
-
+        for shift in range(M):
             chisq = 0.0
-            for char, prob in RUS_FREQS.items():
-                expected = n * prob
-                observed = counts[CHAR_TO_IDX[char]]
-                chisq += ((observed - expected) ** 2) / expected
-
+            for char, probability in RUS_FREQS.items():
+                expected = n * probability
+                observed = observed_counts.get(
+                    (CHAR_TO_IDX[char] + shift) % M, 0
+                )
+                chisq += (observed - expected) ** 2 / expected
             if chisq < min_chisq:
                 min_chisq = chisq
-                best_k = k
+                best_shift = shift
 
-        key.append(IDX_TO_CHAR[best_k])
+        key.append(IDX_TO_CHAR[best_shift])
 
     return "".join(key)
 
 
 def recover_key(text: str, r: int, target_char: str = "о") -> str:
-    """Просте відновлення ключа за найчастішим символом (наївний метод)."""
-    blocks = get_blocks(text, r)
+    """Наївний метод: найчастішу літеру блоку вважаємо заданою target_char."""
+    if target_char not in CHAR_TO_IDX:
+        raise ValueError("target_char має бути літерою робочого алфавіту.")
     key = []
     target_idx = CHAR_TO_IDX[target_char]
-    for block in blocks:
-        most_common_char = Counter(block).most_common(1)[0][0]
-        y_idx = CHAR_TO_IDX[most_common_char]
-        k_idx = (y_idx - target_idx) % M
-        key.append(IDX_TO_CHAR[k_idx])
+    for block in get_blocks(text, r):
+        if not block:
+            raise ValueError("Недостатньо символів шифртексту.")
+        y = Counter(block).most_common(1)[0][0]
+        key_idx = (CHAR_TO_IDX[y] - target_idx) % M
+        key.append(IDX_TO_CHAR[key_idx])
     return "".join(key)
