@@ -7,7 +7,7 @@ from lab1_2 import calculate_bigram_entropy
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-ALPHA = "абвгдежзийклмнопрстуфхцчшщыьэюя"
+ALPHA = "абвгдежзийклмнопрстуфхцчшщьыэюя"
 M = len(ALPHA)
 M2 = M * M
 IDX = {c: i for i, c in enumerate(ALPHA)}
@@ -89,7 +89,6 @@ FORBIDDEN = ["аь", "оь", "уь", "еь", "иь", "ыь", "яь", "юь", "э
              "ыы", "ьы", "ьй", "йь", "жы", "шы", "чы", "щы", "чя", "шя",
              "щя", "жя", "чю", "шю", "щю", "жю", "цю", "ця", "ыа", "ыо",
              "ыу", "ыэ", "ыю", "ыя", "ьэ", "эы", "йй", "йы", "ьъ"]
-FREQ_N = 120
 
 
 def score(text):
@@ -114,8 +113,8 @@ def is_meaningful(text):
 def main(path):
     raw = open(path, encoding="utf-8").read()
     text = "".join(ch for ch in raw.lower() if ch in IDX)
-    if len(text) % 2:
-        text = text[:-1]
+    if len(text) < 4 or len(text) % 2:
+        raise ValueError("Шифртекст має містити парну кількість літер (не менше 4).")
     print(f"Довжина шифртексту: {len(text)} літер, {len(text) // 2} біграм")
     top, cnt = top_bigrams(text, 5)
     print("5 найчастіших біграм шифртексту:")
@@ -129,11 +128,16 @@ def main(path):
     found = []
     pairs = [(i, j) for i in range(5) for j in range(5) if i != j]
     n_cand = 0
+    multiple = no_solution = 0
+    rejected = []
     for (i, j) in ((i, j) for i in range(5) for j in range(i + 1, 5)):
         for (k, l) in pairs:
             X1, X2 = Xs[i], Xs[j]
             Y1, Y2 = Ys[k], Ys[l]
-            for a in solve_lin((X1 - X2) % M2, (Y1 - Y2) % M2, M2):
+            solutions = solve_lin((X1 - X2) % M2, (Y1 - Y2) % M2, M2)
+            multiple += len(solutions) > 1
+            no_solution += not solutions
+            for a in solutions:
                 if egcd(a, M2)[0] != 1:
                     continue
                 b = (Y1 - a * X1) % M2
@@ -145,18 +149,24 @@ def main(path):
                 ok, det = is_meaningful(pt)
                 if ok:
                     found.append((a, b, (TOP_RU[i], TOP_RU[j]), (top[k][0], top[l][0]), det, pt))
+                else:
+                    rejected.append(((a, b), det))
+    print(f"Зіставлень: 200; без розв’язків: {no_solution}; з кількома: {multiple}")
     print(f"\nПеревірено кандидатів у ключ: {n_cand}")
     print(f"Пройшли розпізнавач: {len(found)}")
     for a, b, xp, yp, det, pt in found:
         print(f"\nКлюч (a, b) = ({a}, {b}); зіставлення {xp} -> {yp}")
         print("метрики (dist, forb%, rare%, о+а+е%, перетин%):", tuple(round(v, 2) for v in det))
         print(pt[:300])
-    if found:
+    if rejected:
+        print("Найкращий хибний за відхиленням:", min(rejected, key=lambda v: v[1][0]))
+        print("Найкращий хибний за перетином:", max(rejected, key=lambda v: v[1][4]))
+    if len(found) == 1:
         a, b = found[0][0], found[0][1]
-        open("decrypted_V1.txt", "w", encoding="utf-8").write(found[0][5])
-        open("key_V1.txt", "w", encoding="utf-8").write(f"a = {a}\nb = {b}\n")
+        open(os.path.join(HERE, "decrypted_01.txt"), "w", encoding="utf-8").write(found[0][5])
+        open(os.path.join(HERE, "key_01.txt"), "w", encoding="utf-8").write(f"a = {a}\nb = {b}\n")
     return found
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "V1.txt")
+    main(sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "01.txt"))
